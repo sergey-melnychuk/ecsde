@@ -5,4 +5,3 @@ object Main {
     server.start()
   }
 }
-

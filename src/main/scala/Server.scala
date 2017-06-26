@@ -2,15 +2,18 @@ import java.util.concurrent.CountDownLatch
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
 
+import scala.concurrent.Future
+
 class Server(repo: Repository, port: Int) {
   implicit val system = ActorSystem("data-service")
   implicit val materializer = ActorMaterializer()
-  implicit val executionContext = system.dispatcher
+
+  // http://doc.akka.io/docs/akka-http/current/scala/http/handling-blocking-operations-in-akka-http-routes.html#solution-dedicated-dispatcher-for-blocking-operations
+  implicit val blockingDispatcher = system.dispatchers.lookup("blocking-dispatcher")
 
   val latch = new CountDownLatch(1)
 
@@ -18,17 +21,24 @@ class Server(repo: Repository, port: Int) {
     post {
       path("analytics" / Segment) { event =>
         parameters('timestamp, 'user) { (timestamp, user) =>
-          repo.insert(timestamp.toLong, user, Event(event))
-          complete(s"timestamp: $timestamp, user: $user, event: $event\n")
+          complete {
+            Future {
+              repo.insert(timestamp.toLong, user, Event(event))
+              s"timestamp: $timestamp, user: $user, event: $event\n"
+            }
+          }
         }
       }
     } ~
     get {
       path("analytics") {
         parameters('timestamp) { timestamp =>
-          val stats = repo.scan(timestamp.toLong)
-          val output = s"unqiue_users,${stats.users}\nclicks,${stats.clicks}\nimpressions,${stats.impressions}\n"
-          complete(output)
+          complete {
+            Future {
+              val stats = repo.scan(timestamp.toLong)
+              s"unqiue_users,${stats.users}\nclicks,${stats.clicks}\nimpressions,${stats.impressions}\n"
+            }
+          }
         }
       }
     } ~

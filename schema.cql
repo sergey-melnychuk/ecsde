@@ -4,7 +4,7 @@ CREATE TABLE events (
     impressions counter,
     clicks counter,
     PRIMARY KEY (hour_tag, user_id)
-);
+) WITH CLUSTERING ORDER BY (user_id ASC);
 
 UPDATE events SET impressions = impressions + 1 WHERE user_id = 'a' and hour_tag = 416228;
 UPDATE events SET impressions = impressions + 1 WHERE user_id = 'a' and hour_tag = 416228;
